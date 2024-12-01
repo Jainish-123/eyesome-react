@@ -1,0 +1,115 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Deploy React app on ECS Fargate with ECR and Public IP using EyesomeRole
+
+Parameters:
+  ContainerPort:
+    Type: Number
+    Default: 3000
+    Description: Port number on which the container listens.
+  
+  ContainerImage:
+    Type: String
+    Description: The URI of the Docker image stored in ECR (e.g., 339712966675.dkr.ecr.us-east-1.amazonaws.com/eyesome_repository:latest)
+  
+  DefaultSubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: The ID of the subnet in which ECS tasks should run.
+
+Resources:
+  # ECR Repository (if it doesn't exist yet)
+  # EyesomeECRRepository:
+  #   Type: AWS::ECR::Repository
+  #   Properties:
+  #     RepositoryName: eyesome-repository
+   # {
+#   "Version": "2012-10-17",
+#   "Statement": [
+#     {
+#       "Sid": "AllowCrossAccountPush",
+#       "Effect": "Allow",
+#       "Principal": {
+#         "AWS": "arn:aws:iam::339712966675:root"
+#       },
+#       "Action": [
+#         "ecr:BatchCheckLayerAvailability",
+#         "ecr:CompleteLayerUpload",
+#         "ecr:InitiateLayerUpload",
+#         "ecr:PutImage",
+#         "ecr:UploadLayerPart"
+#       ]
+#     }
+#   ]
+# }
+
+  EyesomeLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: "/ecs/eyesome"
+      RetentionInDays: 7
+  # ECS Cluster
+  EyesomeCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: EyesomeCluster
+
+  # Security Group allowing inbound traffic on port 3000
+  EyesomeSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow inbound HTTP on port 3000
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref ContainerPort
+          ToPort: !Ref ContainerPort
+          CidrIp: 0.0.0.0/0
+
+  # Reference the existing IAM Role (EyesomeRole) for ECS Task Role
+  EyesomeTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: EyesomeTaskDefinition
+      ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/EyesomeRole  # Referencing the existing EyesomeRole
+      TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/EyesomeRole  # Referencing the existing EyesomeRole
+      NetworkMode: awsvpc
+      Cpu: 1024
+      Memory: 3072
+      ContainerDefinitions:
+        - Name: EyesomeContainer
+          Image: !Ref ContainerImage
+          PortMappings:
+            - ContainerPort: !Ref ContainerPort
+              HostPort: !Ref ContainerPort
+              Protocol: tcp
+          Memory: 3072       
+          MemoryReservation: 1024  
+          logConfiguration:
+            logDriver: awslogs
+            options:
+              awslogs-group: "/ecs/eyesome"
+              awslogs-region: "us-east-1"
+              awslogs-stream-prefix: "eyesome-container"
+  # ECS Service (Fargate) with Public IP enabled
+  EyesomeService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref EyesomeCluster
+      DesiredCount: 1
+      TaskDefinition: !Ref EyesomeTaskDefinition
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - Ref: DefaultSubnetId  
+          SecurityGroups:
+            - !GetAtt EyesomeSecurityGroup.GroupId
+          AssignPublicIp: ENABLED
+
+# Outputs:
+  # ECRRepositoryUri:
+    # Description: The URI of the ECR repository where the Docker image is stored.
+    # Value: !GetAtt EyesomeECRRepository.RepositoryUri
+  
+  # PublicIP:
+  #   PublicIPDescription:
+  #   Description: Public IP will be available once the ECS service is running.
+  #   Value: "To find the public IP, navigate to the ECS console, locate the service, and check the task's ENI for the public IP."

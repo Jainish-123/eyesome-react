@@ -1,0 +1,28 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - echo Installing Docker...
+      - curl -fsSL https://get.docker.com -o get-docker.sh
+      - sudo sh get-docker.sh
+      - sudo usermod -aG docker $USER
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - $(aws ecr get-login --no-include-email --region us-east-1)
+      - REPOSITORY_URI=your-ecr-repository-uri  # Replace with your actual ECR URI
+      - IMAGE_TAG=latest
+  build:
+    commands:
+      - echo Building the Docker image...
+      - docker build -t $REPOSITORY_URI:$IMAGE_TAG .
+      - docker tag $REPOSITORY_URI:$IMAGE_TAG $REPOSITORY_URI:$IMAGE_TAG
+  post_build:
+    commands:
+      - echo Pushing the Docker image to Amazon ECR...
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
+
+artifacts:
+  files: '**/*'
+  base-directory: 'build'
