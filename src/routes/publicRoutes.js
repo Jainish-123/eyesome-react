@@ -2,6 +2,10 @@ import Mockman from "mockman-js";
 
 import { Login, ProductDetails, ProductListing, Signup } from "../pages";
 
+// import { VerifyEmail } from "../components/auth/VerifyEmail";
+
+import VerifyEmail from "../components/auth/VerifyEmail";
+
 const authRoutes = [
   {
     path: "/login",
@@ -10,6 +14,10 @@ const authRoutes = [
   {
     path: "/signup",
     element: <Signup />,
+  },
+  {
+    path: "/verify-code",
+    element: <VerifyEmail />,
   },
 ];
 

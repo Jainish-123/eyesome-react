@@ -7,7 +7,7 @@ import { useAuthContext } from "../contexts";
 import { useEffect, useState } from "react";
 
 const Signup = () => {
-  const { signupHandler, signingUp, isAuthenticated } = useAuthContext();
+  const { signupHandler, signingUp, token } = useAuthContext();
   const navigate = useNavigate();
   const [userDetails, setUserDetails] = useState({
     username: "",
@@ -22,21 +22,28 @@ const Signup = () => {
 
   useEffect(() => {
     let id;
-    if (isAuthenticated) {
+    if (token) {
       id = setTimeout(() => {
         navigate("/");
       }, 1000);
     }
 
     return () => {
-      clearInterval(id);
+      clearTimeout(id); // Clear timeout on unmount
     };
-  }, [isAuthenticated]);
+  }, [token, navigate]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    signupHandler(userDetails);
+    // Call signupHandler from context with the user details
+    signupHandler({
+      username: userDetails.username,
+      email: userDetails.email,
+      password: userDetails.password,
+    });
+
+    navigate("/verify-code");
   };
 
   const isDisabled =
@@ -44,10 +51,12 @@ const Signup = () => {
     !userDetails.username ||
     !userDetails.email ||
     !userDetails.password ||
-    !confirmPassword;
+    !confirmPassword ||
+    userDetails.password !== confirmPassword;
+
   return (
-    <main className="grid  grid-rows-1 md:grid-cols-2 w-full  h-screen m-auto ">
-      <section className=" hidden md:block max-h-screen  rounded-lg">
+    <main className="grid grid-rows-1 md:grid-cols-2 w-full h-screen m-auto ">
+      <section className="hidden md:block max-h-screen rounded-lg">
         <img src={bannerHero} alt="" className="w-full h-full object-cover" />
       </section>
       <div className="flex items-center justify-center w-full px-5">
@@ -148,7 +157,7 @@ const Signup = () => {
                   Password Mismatch
                 </p>
               </label>
-              <div className="w-full py-2   flex flex-col gap-4 items-center">
+              <div className="w-full py-2 flex flex-col gap-4 items-center">
                 <button
                   type="submit"
                   className="btn-primary w-2/3 text-lg text-center"
@@ -158,11 +167,7 @@ const Signup = () => {
                 </button>
                 <p className="text-gray-600 text-sm">
                   Already have an account?{" "}
-                  <Link
-                    to="/login"
-                    className="underline text-base
-            "
-                  >
+                  <Link to="/login" className="underline text-base">
                     Login
                   </Link>
                 </p>

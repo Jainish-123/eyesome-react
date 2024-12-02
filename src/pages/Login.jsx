@@ -23,14 +23,18 @@ const Login = () => {
     }
 
     return () => {
-      clearInterval(id);
+      clearTimeout(id);
     };
   }, [token]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    loginHandler(loginCredentials);
+    loginHandler({
+      email: loginCredentials.email,
+      password: loginCredentials.password,
+    });
   };
+
   return (
     <main className="grid  grid-rows-1 lg:grid-cols-2 w-full  h-screen m-auto">
       <section className=" hidden lg:block max-h-screen  rounded-lg">
@@ -50,7 +54,7 @@ const Login = () => {
               <label className="flex flex-col">
                 Email
                 <input
-                  type="email"
+                  type="text"
                   className="border rounded-md p-1.5 shadow-sm"
                   value={loginCredentials.email}
                   onChange={(e) =>
@@ -85,18 +89,6 @@ const Login = () => {
                   }
                 >
                   {loggingIn ? "Logging In..." : "Login"}
-                </button>
-                <button
-                  className="btn-secondary w-2/3 text-sm md:text-base text-center"
-                  onClick={() => {
-                    setLoginCredentials({
-                      ...loginCredentials,
-                      email: "kookie@bangtan.com",
-                      password: "bangtan0707",
-                    });
-                  }}
-                >
-                  Login as a Guest
                 </button>
                 <Link to="/signup" className="underline text-gray-600">
                   Create New Account
