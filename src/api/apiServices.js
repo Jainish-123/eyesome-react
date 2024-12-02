@@ -90,4 +90,7 @@ export const deleteProductFromWishlistService = (productId, token) =>
     },
   });
 
-export const getAllCategoriesService = () => axios.get(CATEGORIES_URL);
+export const getAllCategoriesService = () =>
+  axios.get(
+    "https://qwityatxn0.execute-api.us-east-1.amazonaws.com/dev/categories"
+  );

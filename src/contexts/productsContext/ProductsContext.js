@@ -38,7 +38,7 @@ const ProductsContextProvider = ({ children }) => {
         if (categoryRes.status === 200) {
           dispatch({
             type: actionTypes.INITIALIZE_CATEGORIES,
-            payload: categoryRes.data.categories,
+            payload: categoryRes.data,
           });
         }
       } catch (e) {

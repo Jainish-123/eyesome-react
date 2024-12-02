@@ -13,20 +13,23 @@ export const categories = [
     categoryName: "vision",
     description:
       "Clear vision and stylish frames for a perfect blend of functionality and fashion",
-    categoryImg: glassCategory1,
+    categoryImg:
+      "https://eyesome.s3.us-east-1.amazonaws.com/glassCategory1.png",
   },
   {
     _id: "937d27a0-51b7-4005-bb04-4f5f111eac90",
     categoryName: "sports",
     description:
       "Stay focused and perform at your best with our high-performance sports glasses.",
-    categoryImg: glassCategory3,
+    categoryImg:
+      "https://eyesome.s3.us-east-1.amazonaws.com/glassCategory3.png",
   },
   {
     _id: "1164f45b-1659-4631-88d7-47325bb21eff",
     categoryName: "sunglasses",
     description:
       "Protect your eyes in style with our UV-protected sunglasses collection.",
-    categoryImg: glassCategory2,
+    categoryImg:
+      "https://eyesome.s3.us-east-1.amazonaws.com/glassCategory2.png",
   },
 ];
