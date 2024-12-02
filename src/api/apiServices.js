@@ -14,7 +14,10 @@ export const loginService = (email, password) =>
 export const signupService = (username, email, password) =>
   axios.post(SIGNUP_URL, { username, email, password });
 
-export const getAllProductsService = () => axios.get(PRODUCTS_URL);
+export const getAllProductsService = () =>
+  axios.get(
+    "https://qwityatxn0.execute-api.us-east-1.amazonaws.com/dev/products"
+  );
 
 export const getProductByIdService = (productId) =>
   axios.get(`${PRODUCTS_URL}/${productId}`);

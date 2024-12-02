@@ -29,7 +29,7 @@ const ProductsContextProvider = ({ children }) => {
         if (productsRes.status === 200) {
           dispatch({
             type: actionTypes.INITIALIZE_PRODUCTS,
-            payload: productsRes.data.products,
+            payload: productsRes.data,
           });
         }
 
