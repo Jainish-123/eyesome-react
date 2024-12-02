@@ -17,18 +17,23 @@ const WishlistContextProvider = ({ children }) => {
   const [loadingWishlist, setLoadingWishlist] = useState(false);
   const [disableWish, setDisableWish] = useState(false);
   const [state, dispatch] = useReducer(wishlistReducer, initialState);
+  const [userInfo, setUserInfo] = useState(
+    localStorage.getItem("userInfo")
+      ? JSON.parse(localStorage.getItem("userInfo"))
+      : null
+  );
 
   useEffect(() => {
     if (token) {
       setLoadingWishlist(true);
       (async () => {
         try {
-          const wishlistRes = await getWishlistItemsService(token);
+          const wishlistRes = await getWishlistItemsService(userInfo?.email);
 
           if (wishlistRes.status === 200) {
             dispatch({
               type: actionTypes.INITIALIZE_WISHLIST,
-              payload: wishlistRes.data.wishlist,
+              payload: wishlistRes.data,
             });
           }
         } catch (err) {
@@ -49,7 +54,10 @@ const WishlistContextProvider = ({ children }) => {
   const addProductToWishlist = async (product) => {
     setDisableWish(true);
     try {
-      const response = await postAddProductToWishlistService(product, token);
+      const response = await postAddProductToWishlistService(
+        product,
+        userInfo?.email
+      );
       if (response.status === 200 || response.status === 201) {
         dispatch({
           type: actionTypes.ADD_PRODUCT_TO_WISHLIST,
@@ -74,7 +82,10 @@ const WishlistContextProvider = ({ children }) => {
   const deleteProductFromWishlist = async (productId) => {
     setDisableWish(true);
     try {
-      const response = await deleteProductFromWishlistService(productId, token);
+      const response = await deleteProductFromWishlistService(
+        productId,
+        userInfo?.email
+      );
       console.log({ response });
       if (response.status === 200 || response.status === 201) {
         dispatch({
