@@ -57,12 +57,11 @@ export const postUpdateProductQtyCartService = (productId, type, token) =>
     }
   );
 
-export const deleteProductFromCartService = (productId, token) =>
-  axios.delete(`${CART_URL}/${productId}`, {
-    headers: {
-      authorization: token,
-    },
-  });
+export const deleteProductFromCartService = (productId, email) =>
+  axios.post(
+    `${"https://qwityatxn0.execute-api.us-east-1.amazonaws.com/dev/deleteFromCart"}`,
+    { productId, email }
+  );
 
 export const getWishlistItemsService = (token) =>
   axios.get(WISHLIST_URL, {

@@ -135,7 +135,10 @@ const CartContextProvider = ({ children }) => {
   const deleteProductFromCart = async (productId) => {
     setDisableCart(true);
     try {
-      const response = await deleteProductFromCartService(productId, token);
+      const response = await deleteProductFromCartService(
+        productId,
+        userInfo?.email
+      );
       if (response.status === 200 || response.status === 201) {
         dispatch({
           type: actionTypes.DELETE_PRODUCTS_FROM_CART,
