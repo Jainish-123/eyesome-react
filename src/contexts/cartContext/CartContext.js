@@ -20,6 +20,12 @@ const CartContextProvider = ({ children }) => {
 
   const [state, dispatch] = useReducer(cartReducer, initialState);
 
+  const [userInfo, setUserInfo] = useState(
+    localStorage.getItem("userInfo")
+      ? JSON.parse(localStorage.getItem("userInfo"))
+      : null
+  );
+
   useEffect(() => {
     if (token) {
       setLoadingCart(true);
@@ -56,7 +62,8 @@ const CartContextProvider = ({ children }) => {
           ...product,
           qty: 1,
         },
-        token
+        token,
+        userInfo?.email
       );
       if (response.status === 200 || response.status === 201) {
         dispatch({

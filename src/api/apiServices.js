@@ -32,10 +32,10 @@ export const getCartItemsService = (token) =>
     },
   });
 
-export const postAddProductToCartService = (product, token) =>
+export const postAddProductToCartService = (product, token, email) =>
   axios.post(
-    CART_URL,
-    { product },
+    "https://qwityatxn0.execute-api.us-east-1.amazonaws.com/dev/addToCart",
+    { email, product },
     {
       headers: {
         authorization: token,
