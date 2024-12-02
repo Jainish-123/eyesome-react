@@ -25,12 +25,11 @@ export const getAllProductsService = () =>
 export const getProductByIdService = (productId) =>
   axios.get(`${PRODUCTS_URL}/${productId}`);
 
-export const getCartItemsService = (token) =>
-  axios.get(CART_URL, {
-    headers: {
-      authorization: token,
-    },
-  });
+export const getCartItemsService = (email) =>
+  axios.post(
+    "https://qwityatxn0.execute-api.us-east-1.amazonaws.com/dev/fetchCart",
+    { email }
+  );
 
 export const postAddProductToCartService = (product, token, email) =>
   axios.post(

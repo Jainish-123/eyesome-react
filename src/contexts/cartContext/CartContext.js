@@ -31,12 +31,12 @@ const CartContextProvider = ({ children }) => {
       setLoadingCart(true);
       (async () => {
         try {
-          const cartRes = await getCartItemsService(token);
+          const cartRes = await getCartItemsService(userInfo?.email);
 
           if (cartRes.status === 200) {
             dispatch({
               type: actionTypes.INITIALIZE_CART,
-              payload: cartRes.data.cart,
+              payload: cartRes.data,
             });
           }
         } catch (err) {
