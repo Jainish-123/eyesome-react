@@ -12,7 +12,10 @@ export const loginService = (email, password) =>
   axios.post(LOGIN_URL, { email, password });
 
 export const signupService = (username, email, password) =>
-  axios.post(SIGNUP_URL, { username, email, password });
+  axios.post(
+    "https://qwityatxn0.execute-api.us-east-1.amazonaws.com/dev/signup",
+    { username, email, password }
+  );
 
 export const getAllProductsService = () =>
   axios.get(

@@ -67,14 +67,13 @@ const AuthContextProvider = ({ children }) => {
         setSigningUp(false);
         return;
       }
+
       localStorage.setItem(
         "userInfo",
         JSON.stringify({ email: result.user.getUsername() })
       );
-      notify(
-        "success",
-        "Signed Up Successfully! Check your email for the verification code."
-      );
+
+      notify("success", "Check your email for the verification code.");
       setSigningUp(false);
       // navigate("/verify-code");
     });

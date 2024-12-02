@@ -5,6 +5,8 @@ import bannerHero from "../assets/bannerHero.jpg";
 import { Logo } from "../components";
 import { useAuthContext } from "../contexts";
 import { useEffect, useState } from "react";
+import { signupService } from "../api/apiServices";
+import { notify } from "../utils/utils";
 
 const Signup = () => {
   const { signupHandler, signingUp, token } = useAuthContext();
@@ -44,6 +46,32 @@ const Signup = () => {
     });
 
     navigate("/verify-code");
+
+    try {
+      const response = signupService(
+        userDetails.username,
+        userDetails.email,
+        userDetails.password
+      );
+      console.log(response);
+      if (response.status === 200 || response.status === 201) {
+        // localStorage.setItem("token", response?.data?.encodedToken);
+        // localStorage.setItem(
+        //   "userInfo",
+        //   JSON.stringify(response?.data?.createdUser)
+        // );
+        // setToken(response?.data?.encodedToken);
+        notify("success", "Signed Up Successfully!!");
+      }
+    } catch (err) {
+      console.log(err);
+      notify(
+        "error",
+        err?.response?.data?.errors
+          ? err?.response?.data?.errors[0]
+          : "Some Error Occurred!!"
+      );
+    }
   };
 
   const isDisabled =
