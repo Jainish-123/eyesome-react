@@ -33,10 +33,22 @@ const CartContextProvider = ({ children }) => {
         try {
           const cartRes = await getCartItemsService(userInfo?.email);
 
-          if (cartRes.status === 200) {
+          // if (cartRes.status === 200) {
+          //   dispatch({
+          //     type: actionTypes.INITIALIZE_CART,
+          //     payload: cartRes.data,
+          //   });
+          // }
+
+          if (cartRes.status === 200 && Array.isArray(cartRes.data)) {
             dispatch({
               type: actionTypes.INITIALIZE_CART,
               payload: cartRes.data,
+            });
+          } else {
+            dispatch({
+              type: actionTypes.INITIALIZE_CART,
+              payload: [],
             });
           }
         } catch (err) {

@@ -1,0 +1,1052 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Deploy React app on ECS Fargate with ECR and Public IP using EyesomeRole
+
+Resources:
+  # Lambda Function for SignUp
+  SignUpFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: SignUpFunction
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Handler: index.handler
+      Runtime: nodejs20.x
+      MemorySize: 128
+      Timeout: 30
+      Code:
+        ZipFile: |
+          import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+          import { DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
+
+          const dynamoDBClient = new DynamoDBClient({});
+          const dynamoDB = DynamoDBDocumentClient.from(dynamoDBClient);
+
+          export const handler = async (event) => {
+            try {
+              let eventData = event;
+
+              if (event.body && typeof event.body === 'string') {
+                eventData = JSON.parse(event.body);
+              }
+
+              if (!eventData.email || !eventData.password) {
+                return {
+                  statusCode: 400,
+                  headers: {
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, PUT, PATCH, POST, DELETE, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+                  },
+                  body: JSON.stringify({ error: 'Email and password are required' }),
+                };
+              }
+
+              const dataContact = {
+                TableName: 'users',
+                Item: eventData,
+              };
+
+              await dynamoDB.send(new PutCommand(dataContact));
+
+              return {
+                statusCode: 200,
+                headers: {
+                  'Access-Control-Allow-Origin': '*',
+                  'Access-Control-Allow-Methods': 'GET, PUT, PATCH, POST, DELETE, OPTIONS',
+                  'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+                },
+                body: JSON.stringify({ message: 'Signed Up successfully!' }),
+              };
+            } catch (error) {
+              console.error('Error processing request:', error);
+              return {
+                statusCode: 500,
+                headers: {
+                  'Access-Control-Allow-Origin': '*',
+                  'Access-Control-Allow-Headers': 'Content-Type',
+                  'Access-Control-Allow-Methods': 'OPTIONS,POST',
+                },
+                body: JSON.stringify({ error: error.message || 'An error occurred' }),
+              };
+            }
+          };
+  
+  # Lambda Function for Categories
+  CategoriesFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: CategoriesFunction
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Handler: index.handler
+      Runtime: nodejs20.x
+      MemorySize: 128
+      Timeout: 30
+      Code:
+        ZipFile: |
+          import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+          import { DynamoDBDocumentClient, ScanCommand } from "@aws-sdk/lib-dynamodb";
+
+          const dynamoDBClient = new DynamoDBClient({});
+          const dynamoDb = DynamoDBDocumentClient.from(dynamoDBClient);
+
+          export async function handler(event) {
+            const response = {
+              statusCode: 200,
+              headers: {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, PUT, PATCH, POST, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "Authorization, Content-Type",
+              },
+              body: "",
+            };
+
+            try {
+              // Using the ScanCommand for DynamoDB scan operation
+              const params = {
+                TableName: "categories",
+              };
+
+              const data = await dynamoDb.send(new ScanCommand(params)); // Use send method with ScanCommand
+              response.body = JSON.stringify(data.Items);
+            } catch (error) {
+              console.error(error);
+              response.statusCode = 500;
+              response.body = "Error fetching categories";
+            }
+
+            return response;
+          }
+  
+  # Lambda Function for Fetching Products
+  FetchProductFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: FetchProductFunction
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Handler: index.handler
+      Runtime: nodejs20.x
+      MemorySize: 128
+      Timeout: 30
+      Code:
+        ZipFile: |
+          import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+          import { DynamoDBDocumentClient, ScanCommand } from "@aws-sdk/lib-dynamodb";
+
+          const dynamoDBClient = new DynamoDBClient({});
+          const dynamoDb = DynamoDBDocumentClient.from(dynamoDBClient);
+          const tableName = "users";
+
+          export async function handler(event) {
+            const response = {
+              statusCode: 200,
+              headers: {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, PUT, PATCH, POST, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "Authorization, Content-Type",
+              },
+              body: "",
+            };
+
+            try {
+              const params = {
+                TableName: "products",
+              };
+
+              const data = await dynamoDb.send(new ScanCommand(params));
+              response.body = JSON.stringify(data.Items);
+            } catch (error) {
+              console.error(error);
+              response.statusCode = 500;
+              response.body = "Error fetching products";
+            }
+
+            return response;
+          }
+
+  # Lambda Function for Add To Cart
+  AddToCartFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: AddToCartFunction
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Handler: index.handler
+      Runtime: nodejs20.x
+      MemorySize: 128
+      Timeout: 30
+      Code:
+        ZipFile: |
+          import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+          import {
+            DynamoDBDocumentClient,
+            GetCommand,
+            UpdateCommand,
+          } from "@aws-sdk/lib-dynamodb";
+
+          const dynamoDBClient = new DynamoDBClient({});
+          const dynamoDb = DynamoDBDocumentClient.from(dynamoDBClient);
+
+          export async function handler(event) {
+            let { email, product } = event;
+            let eventData = event;
+
+            if (event.body && typeof event.body === "string") {
+              eventData = JSON.parse(event.body);
+              email = eventData.email;
+              product = eventData.product;
+            }
+
+            if (!email || !product || typeof product !== "object") {
+              return {
+                statusCode: 400,
+                headers: {
+                  "Access-Control-Allow-Origin": "*",
+                  "Access-Control-Allow-Methods":
+                    "GET, PUT, PATCH, POST, DELETE, OPTIONS",
+                  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+                },
+                body: JSON.stringify({ error: "Email and product are required" }),
+              };
+            }
+
+            const getParams = {
+              TableName: "users",
+              Key: {
+                email: email,
+              },
+            };
+
+            try {
+              const data = await dynamoDb.send(new GetCommand(getParams)); // Corrected to use `send` with `GetCommand`
+              if (!data.Item) {
+                return {
+                  statusCode: 404,
+                  headers: {
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods":
+                      "GET, PUT, PATCH, POST, DELETE, OPTIONS",
+                    "Access-Control-Allow-Headers": "Authorization, Content-Type",
+                  },
+                  body: JSON.stringify({ error: "User not found" }),
+                };
+              }
+
+              // Ensure cart is an array and add the new product
+              let updatedCart = data.Item.cart || [];
+
+              // Add the new product to the cart
+              updatedCart = [...updatedCart, product];
+
+              const updateParams = {
+                TableName: "users",
+                Key: {
+                  email: email,
+                },
+                UpdateExpression: "set cart = :cart",
+                ExpressionAttributeValues: {
+                  ":cart": updatedCart,
+                },
+                ReturnValues: "UPDATED_NEW",
+              };
+
+              await dynamoDb.send(new UpdateCommand(updateParams)); // Corrected to use `send` with `UpdateCommand`
+
+              return {
+                statusCode: 200,
+                headers: {
+                  "Access-Control-Allow-Origin": "*",
+                  "Access-Control-Allow-Methods":
+                    "GET, PUT, PATCH, POST, DELETE, OPTIONS",
+                  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+                },
+                body: JSON.stringify({
+                  message: "Product added to cart",
+                  cart: updatedCart,
+                }),
+              };
+            } catch (error) {
+              console.log("Error in adding cart", error);
+              return {
+                statusCode: 500,
+                headers: {
+                  "Access-Control-Allow-Origin": "*",
+                  "Access-Control-Allow-Methods":
+                    "GET, PUT, PATCH, POST, DELETE, OPTIONS",
+                  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+                },
+                body: JSON.stringify({ error: "Could not update cart" }),
+              };
+            }
+          }
+
+  # Lambda Function for Fetching From Cart
+  FetchFromCartFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: FetchFromCartFunction
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Handler: index.handler
+      Runtime: nodejs20.x
+      MemorySize: 128
+      Timeout: 30
+      Code:
+        ZipFile: |
+          import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+          import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
+
+          const dynamoDBClient = new DynamoDBClient({});
+          const dynamoDb = DynamoDBDocumentClient.from(dynamoDBClient);
+
+          export async function handler(event) {
+            let { email } = event;
+            let eventData = event;
+
+            if (event.body && typeof event.body === "string") {
+              eventData = JSON.parse(event.body);
+              email = eventData.email;
+            }
+
+            if (!email) {
+              return {
+                statusCode: 400,
+                headers: {
+                  "Access-Control-Allow-Origin": "*",
+                  "Access-Control-Allow-Methods":
+                    "GET, PUT, PATCH, POST, DELETE, OPTIONS",
+                  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+                },
+                body: JSON.stringify({ error: "Email is required" }),
+              };
+            }
+
+            const params = {
+              TableName: "users",
+              Key: {
+                email: email,
+              },
+            };
+
+            try {
+              // Using GetCommand with send method
+              const data = await dynamoDb.send(new GetCommand(params)); // Corrected usage
+
+              if (!data.Item) {
+                return {
+                  statusCode: 404,
+                  body: JSON.stringify({ error: "User not found" }),
+                };
+              }
+
+              return {
+                statusCode: 200,
+                headers: {
+                  "Access-Control-Allow-Origin": "*",
+                  "Access-Control-Allow-Methods":
+                    "GET, PUT, PATCH, POST, DELETE, OPTIONS",
+                  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+                },
+                body: JSON.stringify(data.Item.cart), // Returning the user's cart
+              };
+            } catch (error) {
+              console.log("Error:", error);
+
+              return {
+                statusCode: 500,
+                body: JSON.stringify({ error: "Could not fetch user cart" }),
+              };
+            }
+          }
+  
+  # Lambda Function for Delete From Cart
+  DeleteFromCartFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: DeleteFromCartFunction
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Handler: index.handler
+      Runtime: nodejs20.x
+      MemorySize: 128
+      Timeout: 30
+      Code:
+        ZipFile: |
+          import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+          import {
+            DynamoDBDocumentClient,
+            GetCommand,
+            UpdateCommand,
+          } from "@aws-sdk/lib-dynamodb";
+
+          const dynamoDBClient = new DynamoDBClient({});
+          const dynamoDb = DynamoDBDocumentClient.from(dynamoDBClient);
+
+          export async function handler(event) {
+            let { email, productId } = event;
+            let eventData = event;
+
+            if (event.body && typeof event.body === "string") {
+              eventData = JSON.parse(event.body);
+              email = eventData.email;
+              productId = eventData.productId;
+            }
+
+            if (!email || !productId) {
+              return {
+                statusCode: 400,
+                headers: {
+                  "Access-Control-Allow-Origin": "*",
+                  "Access-Control-Allow-Methods":
+                    "GET, PUT, PATCH, POST, DELETE, OPTIONS",
+                  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+                },
+                body: JSON.stringify({ error: "Email and productId are required" }),
+              };
+            }
+
+            const getParams = {
+              TableName: "users",
+              Key: {
+                email: email,
+              },
+            };
+
+            try {
+              // Using GetCommand with send method
+              const data = await dynamoDb.send(new GetCommand(getParams)); // Corrected usage
+              if (!data.Item) {
+                return {
+                  statusCode: 404,
+                  headers: {
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods":
+                      "GET, PUT, PATCH, POST, DELETE, OPTIONS",
+                    "Access-Control-Allow-Headers": "Authorization, Content-Type",
+                  },
+                  body: JSON.stringify({ error: "User not found" }),
+                };
+              }
+
+              // Ensure cart is an array and filter out the product to be deleted
+              let updatedCart = data.Item.cart || [];
+              updatedCart = updatedCart.filter((product) => product._id !== productId);
+
+              const updateParams = {
+                TableName: "users",
+                Key: {
+                  email: email,
+                },
+                UpdateExpression: "set cart = :cart",
+                ExpressionAttributeValues: {
+                  ":cart": updatedCart,
+                },
+                ReturnValues: "UPDATED_NEW",
+              };
+
+              await dynamoDb.send(new UpdateCommand(updateParams)); // Corrected usage
+
+              return {
+                statusCode: 200,
+                headers: {
+                  "Access-Control-Allow-Origin": "*",
+                  "Access-Control-Allow-Methods":
+                    "GET, PUT, PATCH, POST, DELETE, OPTIONS",
+                  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+                },
+                body: JSON.stringify({
+                  message: "Product removed from cart",
+                  cart: updatedCart,
+                }),
+              };
+            } catch (error) {
+              console.log("Error in removing product from cart", error);
+              return {
+                statusCode: 500,
+                headers: {
+                  "Access-Control-Allow-Origin": "*",
+                  "Access-Control-Allow-Methods":
+                    "GET, PUT, PATCH, POST, DELETE, OPTIONS",
+                  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+                },
+                body: JSON.stringify({ error: "Could not update cart" }),
+              };
+            }
+          }
+
+  # Lambda Function for Add To Wishlist
+  AddToWishlistFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: AddToWishlistFunction
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Handler: index.handler
+      Runtime: nodejs20.x
+      MemorySize: 128
+      Timeout: 30
+      Code:
+        ZipFile: |
+          import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+          import {
+            DynamoDBDocumentClient,
+            GetCommand,
+            UpdateCommand,
+          } from "@aws-sdk/lib-dynamodb";
+
+          const dynamoDBClient = new DynamoDBClient({});
+          const dynamoDb = DynamoDBDocumentClient.from(dynamoDBClient);
+
+          export async function handler(event) {
+            let { email, product } = event;
+            let eventData = event;
+
+            if (event.body && typeof event.body === "string") {
+              eventData = JSON.parse(event.body);
+              email = eventData.email;
+              product = eventData.product;
+            }
+
+            if (!email || !product || typeof product !== "object") {
+              return {
+                statusCode: 400,
+                headers: {
+                  "Access-Control-Allow-Origin": "*",
+                  "Access-Control-Allow-Methods":
+                    "GET, PUT, PATCH, POST, DELETE, OPTIONS",
+                  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+                },
+                body: JSON.stringify({ error: "Email and product are required" }),
+              };
+            }
+
+            const getParams = {
+              TableName: "users",
+              Key: {
+                email: email,
+              },
+            };
+
+            try {
+              const data = await dynamoDb.send(new GetCommand(getParams)); // Corrected to use `send` with `GetCommand`
+              if (!data.Item) {
+                return {
+                  statusCode: 404,
+                  headers: {
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods":
+                      "GET, PUT, PATCH, POST, DELETE, OPTIONS",
+                    "Access-Control-Allow-Headers": "Authorization, Content-Type",
+                  },
+                  body: JSON.stringify({ error: "User not found" }),
+                };
+              }
+
+              // Ensure wishlist is an array and add the new product
+              let updatedWishlist = data.Item.wishlist || [];
+
+              // Add the new product to the wishlist
+              updatedWishlist = [...updatedWishlist, product];
+
+              const updateParams = {
+                TableName: "users",
+                Key: {
+                  email: email,
+                },
+                UpdateExpression: "set wishlist = :wishlist",
+                ExpressionAttributeValues: {
+                  ":wishlist": updatedWishlist,
+                },
+                ReturnValues: "UPDATED_NEW",
+              };
+
+              await dynamoDb.send(new UpdateCommand(updateParams)); // Corrected to use `send` with `UpdateCommand`
+
+              return {
+                statusCode: 200,
+                headers: {
+                  "Access-Control-Allow-Origin": "*",
+                  "Access-Control-Allow-Methods":
+                    "GET, PUT, PATCH, POST, DELETE, OPTIONS",
+                  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+                },
+                body: JSON.stringify({
+                  message: "Product added to wishlist",
+                  wishlist: updatedWishlist,
+                }),
+              };
+            } catch (error) {
+              console.log("Error in adding product to wishlist", error);
+              return {
+                statusCode: 500,
+                headers: {
+                  "Access-Control-Allow-Origin": "*",
+                  "Access-Control-Allow-Methods":
+                    "GET, PUT, PATCH, POST, DELETE, OPTIONS",
+                  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+                },
+                body: JSON.stringify({ error: "Could not update wishlist" }),
+              };
+            }
+          }
+
+  # Lambda Function for Fetch From Wishlist
+  FetchFromWishlistFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: FetchFromWishlistFunction
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Handler: index.handler
+      Runtime: nodejs20.x
+      MemorySize: 128
+      Timeout: 30
+      Code:
+        ZipFile: |
+          import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+          import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
+
+          const dynamoDBClient = new DynamoDBClient({});
+          const dynamoDb = DynamoDBDocumentClient.from(dynamoDBClient);
+
+          export async function handler(event) {
+            let { email } = event;
+            let eventData = event;
+
+            if (event.body && typeof event.body === "string") {
+              eventData = JSON.parse(event.body);
+              email = eventData.email;
+            }
+
+            if (!email) {
+              return {
+                statusCode: 400,
+                headers: {
+                  "Access-Control-Allow-Origin": "*",
+                  "Access-Control-Allow-Methods":
+                    "GET, PUT, PATCH, POST, DELETE, OPTIONS",
+                  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+                },
+                body: JSON.stringify({ error: "Email is required" }),
+              };
+            }
+
+            const params = {
+              TableName: "users",
+              Key: {
+                email: email,
+              },
+            };
+
+            try {
+              // Using GetCommand to fetch the user's data
+              const data = await dynamoDb.send(new GetCommand(params)); // Corrected usage
+
+              if (!data.Item) {
+                return {
+                  statusCode: 404,
+                  body: JSON.stringify({ error: "User not found" }),
+                };
+              }
+
+              // Return the user's wishlist
+              return {
+                statusCode: 200,
+                headers: {
+                  "Access-Control-Allow-Origin": "*",
+                  "Access-Control-Allow-Methods":
+                    "GET, PUT, PATCH, POST, DELETE, OPTIONS",
+                  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+                },
+                body: JSON.stringify(data.Item.wishlist || []), // Returning the user's wishlist (default to empty array if not found)
+              };
+            } catch (error) {
+              console.log("Error:", error);
+
+              return {
+                statusCode: 500,
+                body: JSON.stringify({ error: "Could not fetch user wishlist" }),
+              };
+            }
+          }
+
+  # Lambda Function for Delete From Wishlist
+  DeleteFromWishlistFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: DeleteFromWishlistFunction
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Handler: index.handler
+      Runtime: nodejs20.x
+      MemorySize: 128
+      Timeout: 30
+      Code:
+        ZipFile: |
+          import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+          import {
+            DynamoDBDocumentClient,
+            GetCommand,
+            UpdateCommand,
+          } from "@aws-sdk/lib-dynamodb";
+
+          const dynamoDBClient = new DynamoDBClient({});
+          const dynamoDb = DynamoDBDocumentClient.from(dynamoDBClient);
+
+          export async function handler(event) {
+            let { email, productId } = event;
+            let eventData = event;
+
+            if (event.body && typeof event.body === "string") {
+              eventData = JSON.parse(event.body);
+              email = eventData.email;
+              productId = eventData.productId;
+            }
+
+            if (!email || !productId) {
+              return {
+                statusCode: 400,
+                headers: {
+                  "Access-Control-Allow-Origin": "*",
+                  "Access-Control-Allow-Methods":
+                    "GET, PUT, PATCH, POST, DELETE, OPTIONS",
+                  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+                },
+                body: JSON.stringify({ error: "Email and productId are required" }),
+              };
+            }
+
+            const getParams = {
+              TableName: "users",
+              Key: {
+                email: email,
+              },
+            };
+
+            try {
+              // Using GetCommand with send method to retrieve the user's data
+              const data = await dynamoDb.send(new GetCommand(getParams));
+              if (!data.Item) {
+                return {
+                  statusCode: 404,
+                  headers: {
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods":
+                      "GET, PUT, PATCH, POST, DELETE, OPTIONS",
+                    "Access-Control-Allow-Headers": "Authorization, Content-Type",
+                  },
+                  body: JSON.stringify({ error: "User not found" }),
+                };
+              }
+
+              // Ensure wishlist is an array and filter out the product to be deleted
+              let updatedWishlist = data.Item.wishlist || [];
+              updatedWishlist = updatedWishlist.filter(
+                (product) => product.id !== productId
+              );
+
+              // Update the wishlist in DynamoDB
+              const updateParams = {
+                TableName: "users",
+                Key: {
+                  email: email,
+                },
+                UpdateExpression: "set wishlist = :wishlist",
+                ExpressionAttributeValues: {
+                  ":wishlist": updatedWishlist,
+                },
+                ReturnValues: "UPDATED_NEW",
+              };
+
+              await dynamoDb.send(new UpdateCommand(updateParams));
+
+              return {
+                statusCode: 200,
+                headers: {
+                  "Access-Control-Allow-Origin": "*",
+                  "Access-Control-Allow-Methods":
+                    "GET, PUT, PATCH, POST, DELETE, OPTIONS",
+                  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+                },
+                body: JSON.stringify({
+                  message: "Product removed from wishlist",
+                  wishlist: updatedWishlist,
+                }),
+              };
+            } catch (error) {
+              console.log("Error in removing product from wishlist", error);
+              return {
+                statusCode: 500,
+                headers: {
+                  "Access-Control-Allow-Origin": "*",
+                  "Access-Control-Allow-Methods":
+                    "GET, PUT, PATCH, POST, DELETE, OPTIONS",
+                  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+                },
+                body: JSON.stringify({ error: "Could not update wishlist" }),
+              };
+            }
+          }
+
+  # HTTP API Gateway
+  EyesomeApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: EyesomeApi
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowMethods:
+          - "*"
+        AllowHeaders:
+          - "*"
+        MaxAge: 86400
+
+  # API Gateway Integrations
+  SignUpIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref EyesomeApi
+      IntegrationType: AWS_PROXY
+      CredentialsArn: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole 
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SignUpFunction.Arn}/invocations"
+      PayloadFormatVersion: "2.0"
+  
+  CategoriesIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref EyesomeApi
+      IntegrationType: AWS_PROXY
+      CredentialsArn: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole 
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CategoriesFunction.Arn}/invocations"
+      PayloadFormatVersion: "2.0"
+
+  FetchProductIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref EyesomeApi
+      IntegrationType: AWS_PROXY
+      CredentialsArn: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole 
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FetchProductFunction.Arn}/invocations"
+      PayloadFormatVersion: "2.0"
+
+  AddToCartIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref EyesomeApi
+      IntegrationType: AWS_PROXY
+      CredentialsArn: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole 
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AddToCartFunction.Arn}/invocations"
+      PayloadFormatVersion: "2.0"
+
+  FetchFromCartIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref EyesomeApi
+      IntegrationType: AWS_PROXY
+      CredentialsArn: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole 
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FetchFromCartFunction.Arn}/invocations"
+      PayloadFormatVersion: "2.0"
+
+  DeleteFromCartIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref EyesomeApi
+      IntegrationType: AWS_PROXY
+      CredentialsArn: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole 
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DeleteFromCartFunction.Arn}/invocations"
+      PayloadFormatVersion: "2.0"
+
+  AddToWishlistIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref EyesomeApi
+      IntegrationType: AWS_PROXY
+      CredentialsArn: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole 
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AddToWishlistFunction.Arn}/invocations"
+      PayloadFormatVersion: "2.0"
+
+  FetchFromWishlistIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref EyesomeApi
+      IntegrationType: AWS_PROXY
+      CredentialsArn: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole 
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FetchFromWishlistFunction.Arn}/invocations"
+      PayloadFormatVersion: "2.0"
+
+  DeleteFromWishlistIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref EyesomeApi
+      IntegrationType: AWS_PROXY
+      CredentialsArn: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole 
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DeleteFromWishlistFunction.Arn}/invocations"
+      PayloadFormatVersion: "2.0"
+
+  # API Gateway Routes
+  SignUpRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref EyesomeApi
+      RouteKey: "POST /signup"
+      Target: !Sub "integrations/${SignUpIntegration}"
+
+  CategoriesRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref EyesomeApi
+      RouteKey: "GET /categories"
+      Target: !Sub "integrations/${CategoriesIntegration}"
+
+  FetchProductRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref EyesomeApi
+      RouteKey: "GET /products"
+      Target: !Sub "integrations/${FetchProductIntegration}"
+
+  AddToCartRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref EyesomeApi
+      RouteKey: "POST /addToCart"
+      Target: !Sub "integrations/${AddToCartIntegration}"
+
+  FetchFromCartRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref EyesomeApi
+      RouteKey: "POST /fetchCart"
+      Target: !Sub "integrations/${FetchFromCartIntegration}"
+
+  DeleteFromCartRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref EyesomeApi
+      RouteKey: "POST /deleteFromCart"
+      Target: !Sub "integrations/${DeleteFromCartIntegration}"
+
+  AddToWishlistRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref EyesomeApi
+      RouteKey: "POST /addToWishlist"
+      Target: !Sub "integrations/${AddToWishlistIntegration}"
+
+  FetchFromWishlistRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref EyesomeApi
+      RouteKey: "POST /fetchWishlist"
+      Target: !Sub "integrations/${FetchFromWishlistIntegration}"
+
+  DeleteFromWishlistRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref EyesomeApi
+      RouteKey: "POST /deleteFromWishlist"
+      Target: !Sub "integrations/${DeleteFromWishlistIntegration}"
+
+  # API Gateway Stage
+  EyesomeApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref EyesomeApi
+      StageName: "$default"
+      AutoDeploy: true
+
+  # DynamoDB Table for Todos
+  ProductsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: "products"
+      AttributeDefinitions:
+        - AttributeName: _id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: _id
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+  
+  UserTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: "users"
+      AttributeDefinitions:
+        - AttributeName: email
+          AttributeType: S
+      KeySchema:
+        - AttributeName: email
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+
+  CategoriesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: "categories"
+      AttributeDefinitions:
+        - AttributeName: _id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: _id
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+
+  # S3 Bucket for Todo Images
+  EyesomeImagesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: eyesome-images
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        IgnorePublicAcls: false
+        BlockPublicPolicy: false
+        RestrictPublicBuckets: false
+  
+  # Public Read Bucket Policy
+  PublicReadBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref EyesomeImagesBucket
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action: "s3:GetObject"
+            Resource: !Sub "arn:aws:s3:::${EyesomeImagesBucket}/*"
+
+  EyesomeUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: EyesomeUserPool  
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+      Schema:
+        - Name: email
+          Required: true
+          Mutable: true
+      EmailVerificationSubject: "Verify your email for EyesomeUserPool"
+      EmailVerificationMessage: "Please add this code to verify your email address. {####}"
+      MfaConfiguration: "OFF"
+      EmailConfiguration:
+        EmailSendingAccount: "COGNITO_DEFAULT"
+      VerificationMessageTemplate:
+        EmailMessage: "Please add this code to verify your email address. {####}"
+        EmailSubject: "Verify your email for EyesomeUserPool"
+
+  EyesomeApiUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId:
+        Ref: EyesomeUserPool
+      ClientName: EyesomeUserPool  
+      GenerateSecret: false  # Set to false for public clients

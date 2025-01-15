@@ -9,7 +9,7 @@ Parameters:
   
   ContainerImage:
     Type: String
-    Description: The URI of the Docker image stored in ECR (e.g., 339712966675.dkr.ecr.us-east-1.amazonaws.com/eyesome_repository:latest)
+    Description: The URI of the Docker image stored in ECR (e.g., 211125672021.dkr.ecr.us-east-1.amazonaws.com/eyesome:latest)
   
   DefaultSubnetId:
     Type: AWS::EC2::Subnet::Id
@@ -68,8 +68,8 @@ Resources:
     Type: AWS::ECS::TaskDefinition
     Properties:
       Family: EyesomeTaskDefinition
-      ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/EyesomeRole  # Referencing the existing EyesomeRole
-      TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/EyesomeRole  # Referencing the existing EyesomeRole
+      ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole  # Referencing the existing EyesomeRole
+      TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole  # Referencing the existing EyesomeRole
       NetworkMode: awsvpc
       Cpu: 1024
       Memory: 3072
@@ -88,6 +88,7 @@ Resources:
               awslogs-group: "/ecs/eyesome"
               awslogs-region: "us-east-1"
               awslogs-stream-prefix: "eyesome-container"
+  
   # ECS Service (Fargate) with Public IP enabled
   EyesomeService:
     Type: AWS::ECS::Service
@@ -103,6 +104,7 @@ Resources:
           SecurityGroups:
             - !GetAtt EyesomeSecurityGroup.GroupId
           AssignPublicIp: ENABLED
+  
 
 # Outputs:
   # ECRRepositoryUri:

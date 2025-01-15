@@ -8,32 +8,25 @@ import {
   CATEGORIES_URL,
 } from "./apiUrls";
 
+const gatewayUrl = "https://3zsb71e55l.execute-api.us-east-1.amazonaws.com";
+
 export const loginService = (email, password) =>
   axios.post(LOGIN_URL, { email, password });
 
 export const signupService = (username, email, password) =>
-  axios.post(
-    "https://qwityatxn0.execute-api.us-east-1.amazonaws.com/dev/signup",
-    { username, email, password }
-  );
+  axios.post(`${gatewayUrl}/signup`, { username, email, password });
 
-export const getAllProductsService = () =>
-  axios.get(
-    "https://qwityatxn0.execute-api.us-east-1.amazonaws.com/dev/products"
-  );
+export const getAllProductsService = () => axios.get(`${gatewayUrl}/products`);
 
 export const getProductByIdService = (productId) =>
   axios.get(`${PRODUCTS_URL}/${productId}`);
 
 export const getCartItemsService = (email) =>
-  axios.post(
-    "https://qwityatxn0.execute-api.us-east-1.amazonaws.com/dev/fetchCart",
-    { email }
-  );
+  axios.post(`${gatewayUrl}/fetchCart`, { email });
 
 export const postAddProductToCartService = (product, token, email) =>
   axios.post(
-    "https://qwityatxn0.execute-api.us-east-1.amazonaws.com/dev/addToCart",
+    `${gatewayUrl}/addToCart`,
     { email, product },
     {
       headers: {
@@ -58,30 +51,16 @@ export const postUpdateProductQtyCartService = (productId, type, token) =>
   );
 
 export const deleteProductFromCartService = (productId, email) =>
-  axios.post(
-    `${"https://qwityatxn0.execute-api.us-east-1.amazonaws.com/dev/deleteFromCart"}`,
-    { productId, email }
-  );
+  axios.post(`${gatewayUrl}/deleteFromCart`, { productId, email });
 
 export const getWishlistItemsService = (email) =>
-  axios.post(
-    "https://qwityatxn0.execute-api.us-east-1.amazonaws.com/dev/fetchWishlist",
-    { email }
-  );
+  axios.post(`${gatewayUrl}/fetchWishlist`, { email });
 
 export const postAddProductToWishlistService = (product, email) =>
-  axios.post(
-    "https://qwityatxn0.execute-api.us-east-1.amazonaws.com/dev/addToWishlist",
-    { product, email }
-  );
+  axios.post(`${gatewayUrl}/addToWishlist`, { product, email });
 
 export const deleteProductFromWishlistService = (productId, email) =>
-  axios.post(
-    `${"https://qwityatxn0.execute-api.us-east-1.amazonaws.com/dev/deleteFromWishlist"}`,
-    { productId, email }
-  );
+  axios.post(`${gatewayUrl}/deleteFromWishlist`, { productId, email });
 
 export const getAllCategoriesService = () =>
-  axios.get(
-    "https://qwityatxn0.execute-api.us-east-1.amazonaws.com/dev/categories"
-  );
+  axios.get(`${gatewayUrl}/categories`);
